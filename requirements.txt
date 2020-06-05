@@ -1,0 +1,9 @@
+plotly
+dash
+pandas
+scikit-image
+napari[pyside2]
+dash_canvas
+joblib
+ipython
+nilearn
