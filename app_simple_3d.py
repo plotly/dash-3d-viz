@@ -7,8 +7,6 @@ import plotly.graph_objects as go
 from dash_canvas.utils import array_to_data_url
 from nilearn import image
 
-
-
 img = image.load_img('assets/radiopaedia_org_covid-19-pneumonia-7_85703_0-dcm.nii')
 mat = img.affine
 img = img.get_data()
@@ -23,7 +21,6 @@ size_factor = abs(mat[2, 2] / mat[0, 0])
 slices_1 = [array_to_data_url(img_1[i], img_format='jpeg') for i in range(img_1.shape[0])]
 slices_2 = [array_to_data_url(img_2[i], img_format='jpeg') for i in range(img_2.shape[0])] # vertical
 
-print(len(slices_1[0]), slices_1[0][:100])
 
 def make_figure(filename_uri, width, height, row=None, col=None, size_factor=1):
     fig = go.Figure()
@@ -68,6 +65,7 @@ def make_figure(filename_uri, width, height, row=None, col=None, size_factor=1):
             y1=row,
             line=dict(width=5, color='red'),
             fillcolor='pink')
+    fig.update_layout(dragmode='drawclosedpath', newshape_line_color='cyan')
     return fig
 
 
@@ -81,6 +79,7 @@ app.layout = html.Div([
                value=len(img_1) // 2,
                updatemode='drag'),
         html.H6(id='slider-display'),
+        html.Button('interpolate', id='interp-button'),
         ],
         style={'width':'50%', 'display':'inline-block'}),
     html.Div([
@@ -95,6 +94,7 @@ app.layout = html.Div([
     dcc.Store(id='small-slices-2', data=slices_2),
     dcc.Store(id='z-pos', data=l_h // 2),
     dcc.Store(id='x-pos', data=l_lat // 2),
+    dcc.Store(id='annotations', data={})
         ])
 
 
@@ -104,21 +104,30 @@ app.layout = html.Div([
      Output('graph-2', 'figure'),
      Output('slider-2-display', 'children'),
      Output('z-pos', 'data'),
-     Output('x-pos', 'data')
+     Output('x-pos', 'data'),
+     Output('annotations', 'data')
      ],
     [Input('slider', 'value'),
-     Input('slider-2', 'value')],
+     Input('slider-2', 'value'),
+     Input('graph', 'relayoutData')
+     ],
     [State('small-slices', 'data'),
      State('small-slices-2', 'data'),
      State('z-pos', 'data'),
-     State('x-pos', 'data')
+     State('x-pos', 'data'),
+     State('annotations', 'data')
     ])
-def update_figure(n_slider, n_slider_2, slices, slices_2, z_pos, x_pos):
-    if not any(event for event in (n_slider, n_slider_2)):
-        return dash.no_update, dash.no_update
+def update_figure(n_slider, n_slider_2, relayout, slices, slices_2, z_pos, x_pos, annotations):
+    if not any(event for event in (n_slider, n_slider_2, relayout)):
+        return (dash.no_update,) * 7
     ctx = dash.callback_context
     event = ctx.triggered[0]['prop_id']
-    if event == 'slider-2.value':
+    print(annotations)
+    if event == 'graph.relayoutData' and 'shapes' in relayout:
+        shape = relayout['shapes'][-1]
+        annotations[z_pos] = shape
+        return (dash.no_update,)*6 + (annotations,)
+    elif event == 'slider-2.value':
         slice_index_2 = int(n_slider_2)
         x_pos = slice_index_2
         fig_2 = make_figure(slices_2[slice_index_2], width=l_lat, height=l_h * size_factor, row=int(z_pos * size_factor))
@@ -128,9 +137,11 @@ def update_figure(n_slider, n_slider_2, slices, slices_2, z_pos, x_pos):
         slice_index_1 = int(n_slider)
         z_pos = slice_index_1
         fig_1 = make_figure(slices[slice_index_1], width=l_lat, height=l_lat, row=x_pos)
+        if str(z_pos) in annotations:
+            fig_1.add_shape(annotations[str(z_pos)])
         fig_2 = make_figure(slices_2[x_pos], width=l_lat, height=l_h * size_factor, row=int(z_pos * size_factor))
         slice_index_2 = dash.no_update
-    return fig_1, slice_index_1, fig_2, slice_index_2, z_pos, x_pos
+    return fig_1, slice_index_1, fig_2, slice_index_2, z_pos, x_pos, annotations
 
 
 if __name__ == '__main__':
