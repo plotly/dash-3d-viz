@@ -13,6 +13,9 @@ Inside "ipython --pylab=qt"
 
 ## Data
 
+radiopaedia_org_covid-19-pneumonia-7_85703_0-dcm.nii was obtained from https://github.com/ieee8023/covid-chestxray-dataset
+
+
 BraTS19_2013_10_1_flair.nii was obtained from the [MICCAI BraTS 2019
 segmentation challenge](https://www.med.upenn.edu/cbica/brats2019/data.html). Please refer to the publications below
 
